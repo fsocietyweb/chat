@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fsociety Global Chat</title>
+<style>
+body {
+    margin: 0;
+    background: #000;
+    color: #00ff66;
+    font-family: Consolas, monospace;
+    overflow: hidden;
+}
+
+.matrix {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(0,255,100,0.05),
+        rgba(0,255,100,0.05) 1px,
+        transparent 1px,
+        transparent 2px
+    );
+    animation: flicker 0.15s infinite;
+    pointer-events: none;
+}
+
+@keyframes flicker {
+    0% { opacity: 0.95; }
+    50% { opacity: 1; }
+    100% { opacity: 0.92; }
+}
+
+.container {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.header {
+    border-bottom: 1px solid #00ff66;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 28px;
+    text-shadow: 0 0 10px #00ff66;
+}
+
+.server-box {
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+.chat-box {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid #00ff66;
+    padding: 15px;
+    background: rgba(0,0,0,0.8);
+}
+
+.message {
+    margin-bottom: 20px;
+}
+
+.tag {
+    color: #00ff66;
+    font-weight: bold;
+}
+
+.text {
+    margin-top: 5px;
+    color: #d4ffd4;
+}
+
+.input-area {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+input {
+    flex: 1;
+    background: #050505;
+    border: 1px solid #00ff66;
+    color: #00ff66;
+    padding: 12px;
+    outline: none;
+    font-family: Consolas, monospace;
+}
+
+button {
+    background: #00ff66;
+    color: #000;
+    border: none;
+    padding: 12px 20px;
+    cursor: pointer;
+    font-weight: bold;
+    font-family: Consolas, monospace;
+}
+
+button:hover {
+    background: #00cc55;
+}
+</style>
+</head>
+<body>
+<div class="matrix"></div>
+
+<div class="container">
+    <div class="header">
+        <h1>FSOCIETY GLOBAL CHAT</h1>
+        <div class="server-box">
+            Connected To:
+            <span>https://fsocietyweb.github.io/chat</span><br>
+            Status: ONLINE
+        </div>
+    </div>
+
+    <div id="loginScreen">
+        <div class="form-box">
+            <h2>ACCESS REQUIRED</h2>
+
+            <input type="text" id="nameInput" placeholder="Name" required>
+            <input type="text" id="osInput" placeholder="OS" required>
+            <input type="text" id="countryInput" placeholder="Country" required>
+
+            <button onclick="joinChat()">CONNECT</button>
+        </div>
+    </div>
+
+    <div id="chatScreen" style="display:none; flex-direction:column; height:100%;">
+        <div class="chat-box" id="chatBox"></div>
+
+        <div class="input-area">
+            <input type="text" id="messageInput" placeholder="Enter Message">
+            <button onclick="sendMessage()">SEND</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.form-box {
+    border: 1px solid #00ff66;
+    padding: 20px;
+    width: 350px;
+    background: rgba(0,0,0,0.9);
+}
+
+.form-box h2 {
+    margin-top: 0;
+    color: #00ff66;
+}
+
+.form-box input {
+    width: 100%;
+    margin-bottom: 12px;
+    box-sizing: border-box;
+}
+</style>
+
+<script>
+const chatBox = document.getElementById('chatBox');
+
+let username = '';
+let os = '';
+let country = '';
+
+const socket = new WebSocket('ws://YOUR_SERVER_IP:5555');
+
+socket.onopen = () => {
+    console.log('Connected To Server');
+};
+
+socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    const msg = document.createElement('div');
+    msg.className = 'message';
+
+    msg.innerHTML = `
+        <div class="tag">[${data.tag}]</div>
+        <div class="text">[${data.name}|${data.country}|${data.os}]</div>
+        <div class="text">[${data.time}] ${data.message}</div>
+    `;
+
+    chatBox.appendChild(msg);
+    chatBox.scrollTop = chatBox.scrollHeight;
+};
+
+socket.onerror = () => {
+    alert('Connection To Server Failed');
+};
+
+function joinChat() {
+    username = document.getElementById('nameInput').value.trim();
+    os = document.getElementById('osInput').value.trim();
+    country = document.getElementById('countryInput').value.trim();
+
+    if (!username || !os || !country) {
+        alert('All fields are required');
+        return;
+    }
+
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('chatScreen').style.display = 'flex';
+
+    const joinPayload = {
+        name: username,
+        os: os,
+        country: country,
+        message: 'Joined Chat'
+    };
+
+    socket.send(JSON.stringify(joinPayload));
+}
+
+function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+
+    if (!text) return;
+
+    const payload = {
+        name: username,
+        os: os,
+        country: country,
+        message: text
+    };
+
+    socket.send(JSON.stringify(payload));
+
+    input.value = '';
+}
+
+const messageInput = document.getElementById('messageInput');
+
+messageInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+});
+</script>
+
+<!--
+SERVER.PY
+
+Run this separately.
+It acts as the central server that the website connects to.
+-->
+
+<!--
+python
+import asyncio
+import websockets
+import json
+
+HOST = '0.0.0.0'
+PORT = 5555
+
+clients = set()
+
+
+async def broadcast(message):
+    dead = []
+
+    for client in clients:
+        try:
+            await client.send(message)
+
+        except:
+            dead.append(client)
+
+    for d in dead:
+        clients.remove(d)
+
+
+async def handler(websocket):
+    clients.add(websocket)
+
+    try:
+        async for message in websocket:
+            data = json.loads(message)
+
+            username = data['name']
+            country = data['country']
+            os_name = data['os']
+            text = data['message']
+
+            payload = json.dumps({
+                'tag': 'SERVER',
+                'name': username,
+                'country': country,
+                'os': os_name,
+                'message': text
+            })
+
+            print(f'[{username}|{country}|{os_name}] {text}')
+
+            await broadcast(payload)
+
+    finally:
+        clients.remove(websocket)
+
+
+async def main():
+    async with websockets.serve(handler, HOST, PORT):
+        print(f'Server Running On ws://{HOST}:{PORT}')
+        await asyncio.Future()
+
+
+asyncio.run(main())
+
+Required:
+pip install websockets
+-->
+
+</body>
+</html>
